@@ -3,16 +3,19 @@ package main
 import (	
 	"fmt"
 	"errors"
+	"os"
+	"io/ioutil"
 
 	"github.com/gkiki90/envman/pathutil"
 	"github.com/gkiki90/envman/envutil"
 	"github.com/alecthomas/kingpin"
+	"code.google.com/p/go.crypto/ssh/terminal"
 )
 
 var (
 	add = kingpin.Command("add", "Add new environment variable.")
 	key = add.Flag("key", "Key for new/exist environment variable.").Required().String()
-	value = add.Flag("value", "Value for new/exist environment variable.").Required().String()
+	value = add.Flag("value", "Value for new/exist environment variable.").String()
 
 	print = kingpin.Command("print", "Load environment variables.")
 )
@@ -21,13 +24,13 @@ func loadEnvlist() (envutil.EnvListJSONStruct, error) {
 	path := pathutil.DefaultEnvlistPath
 	isExists, err := pathutil.IsPathExists(path)
 	if err != nil {
-		fmt.Println("Failed to check path, err!: %s", err)
+		fmt.Println("Failed to check path, err: %s", err)
 		return envutil.EnvListJSONStruct{}, err
 	}
 	if isExists {
 		list, err := envutil.ReadEnvListFromFile(pathutil.DefaultEnvlistPath)
 		if err != nil {
-			fmt.Println("Failed to read envlist, err!: %s", err)
+			fmt.Println("Failed to read envlist, err: %s", err)
 			return envutil.EnvListJSONStruct{}, err
 		}
 
@@ -51,7 +54,7 @@ func addEnv(envKey, envValue string) error {
 	if err != nil {
 		err := pathutil.CreateEnvmanDir()
 		if err != nil {
-			fmt.Println("Failed to create envman dir, err!: %s", err)
+			fmt.Println("Failed to create envman dir, err: %s", err)
 			return err
 		}
 	}
@@ -75,7 +78,7 @@ func addEnv(envKey, envValue string) error {
 	envlist.Inputs = newEnvList
 	err = envutil.WriteEnvListToFile(pathutil.DefaultEnvlistPath, envlist)
 	if err != nil {
-		fmt.Println("Failed to create store envlist, err!: %s", err)
+		fmt.Println("Failed to create store envlist, err: %s", err)
 		return err
 	}
 
@@ -87,7 +90,7 @@ func addEnv(envKey, envValue string) error {
 func printEnvlist() error {
 	envlist, err := loadEnvlist()
 	if err != nil {
-		fmt.Println("Failed to read environment variable list, err!: %s", err)
+		fmt.Println("Failed to read environment variable list, err: %s", err)
 		return err
 	}
 	fmt.Println(envlist)
@@ -96,12 +99,28 @@ func printEnvlist() error {
 
 
 func main() {
+	stdinValue := ""
+	if ! terminal.IsTerminal(0) {
+        bytes, err := ioutil.ReadAll(os.Stdin)
+        if err != nil {
+        	fmt.Print("Failed to read stdin, err: %s", err)
+        }
+        stdinValue = string(bytes)
+    } else {
+        fmt.Println("no piped data")
+    }
+
 	kingpin.UsageTemplate(kingpin.CompactUsageTemplate).Version("1.0").Author("Bitrise")
-	kingpin.CommandLine.Help = "Environment manger."
+	kingpin.CommandLine.Help = "Environment variable manger."
 	switch kingpin.Parse() {
-	case add.FullCommand():
-		kingpin.FatalIfError(addEnv(*key, *value), "Add failed")
-	case print.FullCommand():
-		kingpin.FatalIfError(printEnvlist(), "Print failed")
+		case add.FullCommand(): {
+			if stdinValue != "" {
+				*value = stdinValue
+			}
+			kingpin.FatalIfError(addEnv(*key, *value), "Add failed")
+		}
+		case print.FullCommand(): {
+			kingpin.FatalIfError(printEnvlist(), "Print failed")
+		}
 	}
 }
