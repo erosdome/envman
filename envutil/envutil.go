@@ -6,7 +6,6 @@ import (
 	"errors"
 
 	"gopkg.in/yaml.v2"
-	"github.com/gkiki90/envman/pathutil"
 )
 
 type EnvYMLStruct struct {
@@ -44,14 +43,6 @@ func generateFormattedYMLForEnvList(envlist EnvListYMLStruct) ([]byte, error) {
 func WriteEnvListToFile(fpath string, envlist EnvListYMLStruct) error {
 	if fpath == "" {
 		return errors.New("No path provided")
-	}
-
-	isExists, err := pathutil.IsPathExists(fpath)
-	if err != nil {
-		return err
-	}
-	if isExists {
-		// return errors.New("Inputlist file already exists!")
 	}
 
 	file, err := os.Create(fpath)
