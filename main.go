@@ -10,15 +10,31 @@ import (
 )
 
 var (
-	add     = kingpin.Command("add", "Add new environment variable.")
-	key 	= add.Flag("key", "Key.").Required().String()
-	value 	= add.Flag("value", "Value.").Required().String()
+	add = kingpin.Command("add", "Add new environment variable.")
+	key = add.Flag("key", "Key for new/exist environment variable.").Required().String()
+	value = add.Flag("value", "Value for new/exist environment variable.").Required().String()
+
+	print = kingpin.Command("print", "Load environment variables.")
 )
 
-func addComand() error {
-	fmt.Println("Add command")
+func loadEnvlist() (envutil.EnvListJSONStruct, error) {
+	path := pathutil.DefaultEnvlistPath
+	isExists, err := pathutil.IsPathExists(path)
+	if err != nil {
+		fmt.Println("Failed to check path, err!: %s", err)
+		return envutil.EnvListJSONStruct{}, err
+	}
+	if isExists {
+		list, err := envutil.ReadEnvListFromFile(pathutil.DefaultEnvlistPath)
+		if err != nil {
+			fmt.Println("Failed to read envlist, err!: %s", err)
+			return envutil.EnvListJSONStruct{}, err
+		}
 
-	return nil;
+		return list, nil
+	} else {
+		return envutil.EnvListJSONStruct{}, errors.New("No environemt variable list found")
+	} 
 }
 
 func addEnv(envKey, envValue string) error {
@@ -31,21 +47,8 @@ func addEnv(envKey, envValue string) error {
 	}
 
 	// Load envlist, or create if not exist
-	var envlist envutil.EnvListJSONStruct
-	path := pathutil.DefaultEnvlistPath
-	isExists, err := pathutil.IsPathExists(path)
+	envlist, err := loadEnvlist()
 	if err != nil {
-		fmt.Println("Failed to check path, err!: %s", err)
-		return err
-	}
-	if isExists {
-		list, err := envutil.ReadEnvListFromFile(pathutil.DefaultEnvlistPath)
-		envlist = list
-		if err != nil {
-			fmt.Println("Failed to read envlist, err!: %s", err)
-			return err
-		}
-	} else {
 		err := pathutil.CreateEnvmanDir()
 		if err != nil {
 			fmt.Println("Failed to create envman dir, err!: %s", err)
@@ -81,18 +84,13 @@ func addEnv(envKey, envValue string) error {
 	return nil
 }
 
-func removeCommand() error {
-	fmt.Println("Remove command")
-	return nil;
-}
-
-func doCommand() error {
-	fmt.Println("Do command")
-	return nil;
-}
-
-func printCommand() error {
-	fmt.Println("Print command")
+func printEnvlist() error {
+	envlist, err := loadEnvlist()
+	if err != nil {
+		fmt.Println("Failed to read environment variable list, err!: %s", err)
+		return err
+	}
+	fmt.Println(envlist)
 	return nil;
 }
 
@@ -103,5 +101,7 @@ func main() {
 	switch kingpin.Parse() {
 	case add.FullCommand():
 		kingpin.FatalIfError(addEnv(*key, *value), "Add failed")
+	case print.FullCommand():
+		kingpin.FatalIfError(printEnvlist(), "Print failed")
 	}
 }
