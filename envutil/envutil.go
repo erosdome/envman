@@ -15,7 +15,7 @@ type EnvJSONStruct struct {
 }
 
 type EnvListJSONStruct struct {
-	Inputs []EnvJSONStruct `json:"envs"`
+	Inputs []EnvJSONStruct `json:"environment_variables"`
 }
 
 func ReadEnvListFromReader(reader io.Reader) (EnvListJSONStruct, error) {

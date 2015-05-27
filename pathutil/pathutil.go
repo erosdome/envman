@@ -5,6 +5,10 @@ import (
     "runtime"
 )
 
+var DefaultEnvmanDir string = UserHomeDir() + "/.envman/"
+var DefaultEnvlistName string = "environment_variables.json"
+var DefaultEnvlistPath string = DefaultEnvmanDir + DefaultEnvlistName
+
 func UserHomeDir() string {
     if runtime.GOOS == "windows" {
         home := os.Getenv("HOMEDRIVE") + os.Getenv("HOMEPATH")
@@ -25,4 +29,18 @@ func IsPathExists(path string) (bool, error) {
 		return false, nil
 	}
 	return false, err
+}
+
+func CreateEnvmanDir() error {
+    path := DefaultEnvmanDir
+    exist, _ := IsPathExists(path)
+    if exist {
+        return nil
+    } 
+    return createDir(path)
+}
+
+func createDir(path string) error {
+    err := os.MkdirAll(path, 02750)
+    return err
 }

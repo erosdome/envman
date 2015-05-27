@@ -3,8 +3,8 @@ package main
 import (	
 	"fmt"
 
-	"github.com/gkiki90/envman/envutil"
 	"github.com/gkiki90/envman/pathutil"
+	"github.com/gkiki90/envman/envutil"
 	"github.com/alecthomas/kingpin"
 )
 
@@ -35,20 +35,30 @@ func addComand() error {
 func addEnv(envKey, envValue string) error {
 	var envlist envutil.EnvListJSONStruct
 
-	isExists, err := pathutil.IsPathExists(DefaultPath)
+	// Load envlist, or create if not exist
+	path := pathutil.DefaultEnvlistPath
+	isExists, err := pathutil.IsPathExists(path)
 	if err != nil {
-		fmt.Println("err!: %s", err)
+		fmt.Println("Failed to check path, err!: %s", err)
 		return err
 	}
 	if isExists {
-		list, err := envutil.ReadEnvListFromFile(DefaultPath)
+		list, err := envutil.ReadEnvListFromFile(pathutil.DefaultEnvlistPath)
 		envlist = list
 		if err != nil {
-			fmt.Println("err!: %s", err)
+			fmt.Println("Failed to read envlist, err!: %s", err)
+			return err
+		}
+	} else {
+		err := pathutil.CreateEnvmanDir()
+		if err != nil {
+			fmt.Println("Failed to create envman dir, err!: %s", err)
+			return err
 		}
 	}
-	alreadyUsedKey := false
 
+	// Add to or update envlist
+	alreadyUsedKey := false
 	newEnvStruct := envutil.EnvJSONStruct{ *key, *value }
 	var newEnvList []envutil.EnvJSONStruct
 	for i := range envlist.Inputs {
@@ -60,13 +70,15 @@ func addEnv(envKey, envValue string) error {
 			newEnvList = append(newEnvList, oldEnvStruct)
 		}
 	}
-
 	if alreadyUsedKey == false {
 		newEnvList = append(newEnvList, newEnvStruct)
 	}
-
 	envlist.Inputs = newEnvList
-	envutil.WriteEnvListToFile(DefaultPath, envlist)
+	err = envutil.WriteEnvListToFile(pathutil.DefaultEnvlistPath, envlist)
+	if err != nil {
+		fmt.Println("Failed to create store envlist, err!: %s", err)
+		return err
+	}
 
 	fmt.Println("New env list: ", newEnvList)
 
