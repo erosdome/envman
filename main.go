@@ -20,25 +20,26 @@ var (
 	print = kingpin.Command("print", "Load environment variables.")
 )
 
-func loadEnvlist() (envutil.EnvListJSONStruct, error) {
+func loadEnvlist() (envutil.EnvListYMLStruct, error) {
 	path := pathutil.DefaultEnvlistPath
 	isExists, err := pathutil.IsPathExists(path)
 	if err != nil {
 		fmt.Println("Failed to check path, err: %s", err)
-		return envutil.EnvListJSONStruct{}, err
+		return envutil.EnvListYMLStruct{}, err
 	}
 	if isExists {
 		list, err := envutil.ReadEnvListFromFile(pathutil.DefaultEnvlistPath)
 		if err != nil {
 			fmt.Println("Failed to read envlist, err: %s", err)
-			return envutil.EnvListJSONStruct{}, err
+			return envutil.EnvListYMLStruct{}, err
 		}
 
 		return list, nil
 	} else {
-		return envutil.EnvListJSONStruct{}, errors.New("No environemt variable list found")
+		return envutil.EnvListYMLStruct{}, errors.New("No environemt variable list found")
 	} 
 }
+
 
 func addEnv(envKey, envValue string) error {
 	// Validate input
@@ -61,8 +62,8 @@ func addEnv(envKey, envValue string) error {
 
 	// Add to or update envlist
 	alreadyUsedKey := false
-	newEnvStruct := envutil.EnvJSONStruct{ *key, *value }
-	var newEnvList []envutil.EnvJSONStruct
+	newEnvStruct := envutil.EnvYMLStruct{ *key, *value }
+	var newEnvList []envutil.EnvYMLStruct
 	for i := range envlist.Inputs {
 		oldEnvStruct := envlist.Inputs[i]
 		if oldEnvStruct.Key ==  newEnvStruct.Key {
@@ -99,6 +100,7 @@ func printEnvlist() error {
 
 
 func main() {
+	// Read piped data
 	stdinValue := ""
 	if ! terminal.IsTerminal(0) {
         bytes, err := ioutil.ReadAll(os.Stdin)
@@ -106,10 +108,9 @@ func main() {
         	fmt.Print("Failed to read stdin, err: %s", err)
         }
         stdinValue = string(bytes)
-    } else {
-        fmt.Println("no piped data")
-    }
+    } 
 
+	// Perform command
 	kingpin.UsageTemplate(kingpin.CompactUsageTemplate).Version("1.0").Author("Bitrise")
 	kingpin.CommandLine.Help = "Environment variable manger."
 	switch kingpin.Parse() {

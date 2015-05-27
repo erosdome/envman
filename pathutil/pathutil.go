@@ -6,8 +6,19 @@ import (
 )
 
 var DefaultEnvmanDir string = UserHomeDir() + "/.envman/"
-var DefaultEnvlistName string = "environment_variables.json"
+var DefaultEnvlistName string = "environment_variables.yml"
 var DefaultEnvlistPath string = DefaultEnvmanDir + DefaultEnvlistName
+
+func IsPathExists(path string) (bool, error) {
+    _, err := os.Stat(path)
+    if err == nil {
+        return true, nil
+    }
+    if os.IsNotExist(err) {
+        return false, nil
+    }
+    return false, err
+}
 
 func UserHomeDir() string {
     if runtime.GOOS == "windows" {
@@ -18,17 +29,6 @@ func UserHomeDir() string {
         return home
     }
     return os.Getenv("HOME")
-}
-
-func IsPathExists(path string) (bool, error) {
-	_, err := os.Stat(path)
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return false, err
 }
 
 func CreateEnvmanDir() error {

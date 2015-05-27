@@ -1,52 +1,47 @@
 package envutil
 
 import (
-	"io"
-	"encoding/json"
+	"io/ioutil"
 	"os"
 	"errors"
 
+	"gopkg.in/yaml.v2"
 	"github.com/gkiki90/envman/pathutil"
 )
 
-type EnvJSONStruct struct {
-	Key 			string 		`json:"key"`
-	Value 			string		`json:"value"`
+type EnvYMLStruct struct {
+	Key 			string 		`yml:"key"`
+	Value 			string		`yml:"value"`
 }
 
-type EnvListJSONStruct struct {
-	Inputs []EnvJSONStruct `json:"environment_variables"`
+type EnvListYMLStruct struct {
+	Inputs []EnvYMLStruct `yml:"environment_variables"`
 }
 
-func ReadEnvListFromReader(reader io.Reader) (EnvListJSONStruct, error) {
-	var envlist EnvListJSONStruct
-	jsonParser := json.NewDecoder(reader)
-	if err := jsonParser.Decode(&envlist); err != nil {
-		return EnvListJSONStruct{}, err
+func ReadEnvListFromFile(fpath string) (EnvListYMLStruct, error) {
+	bytes, err := ioutil.ReadFile(fpath)
+    if err != nil {
+        return EnvListYMLStruct{}, err
+    }
+
+	var envlist EnvListYMLStruct
+	err = yaml.Unmarshal(bytes, &envlist)
+	if err != nil {
+		return EnvListYMLStruct{}, err
 	}
 
 	return envlist, nil
 }
 
-func ReadEnvListFromFile(fpath string) (EnvListJSONStruct, error) {
-	file, err := os.Open(fpath)
-	if err != nil {
-		return EnvListJSONStruct{}, err
-	}
-	defer file.Close()
-
-	return ReadEnvListFromReader(file)
-}
-
-func generateFormattedJSONForEnvList(envlist EnvListJSONStruct) ([]byte, error) {
-	jsonContBytes, err := json.MarshalIndent(envlist, "", "\t")
+func generateFormattedYMLForEnvList(envlist EnvListYMLStruct) ([]byte, error) {
+	bytes, err := yaml.Marshal(envlist)
 	if err != nil {
 		return []byte{}, err
 	}
-	return jsonContBytes, nil
+	return bytes, nil
 }
 
-func WriteEnvListToFile(fpath string, envlist EnvListJSONStruct) error {
+func WriteEnvListToFile(fpath string, envlist EnvListYMLStruct) error {
 	if fpath == "" {
 		return errors.New("No path provided")
 	}
@@ -65,7 +60,7 @@ func WriteEnvListToFile(fpath string, envlist EnvListJSONStruct) error {
 	}
 	defer file.Close()
 
-	jsonContBytes, err := generateFormattedJSONForEnvList(envlist)
+	jsonContBytes, err := generateFormattedYMLForEnvList(envlist)
 	if err != nil {
 		return err
 	}
@@ -77,3 +72,5 @@ func WriteEnvListToFile(fpath string, envlist EnvListJSONStruct) error {
 
 	return nil
 }
+
+
