@@ -2,6 +2,7 @@ package main
 
 import (	
 	"fmt"
+	"errors"
 
 	"github.com/gkiki90/envman/pathutil"
 	"github.com/gkiki90/envman/envutil"
@@ -14,18 +15,6 @@ var (
 	value 	= add.Flag("value", "Value.").Required().String()
 )
 
-func versionComand() error {
-	fmt.Println("version: ", VersionString)
-
-	return nil
-}
-
-func helpComand() error {
-	fmt.Println("help")
-
-	return nil;
-}
-
 func addComand() error {
 	fmt.Println("Add command")
 
@@ -33,9 +22,16 @@ func addComand() error {
 }
 
 func addEnv(envKey, envValue string) error {
-	var envlist envutil.EnvListJSONStruct
+	// Validate input
+	if envKey == "" {
+		return errors.New("Invalid environment variable key")
+	}
+	if envValue == "" {
+		return errors.New("Invalid environment variable value")
+	}
 
 	// Load envlist, or create if not exist
+	var envlist envutil.EnvListJSONStruct
 	path := pathutil.DefaultEnvlistPath
 	isExists, err := pathutil.IsPathExists(path)
 	if err != nil {
@@ -102,7 +98,7 @@ func printCommand() error {
 
 
 func main() {
-	kingpin.UsageTemplate(kingpin.CompactUsageTemplate).Version("1.0").Author("Alec Thomas")
+	kingpin.UsageTemplate(kingpin.CompactUsageTemplate).Version("1.0").Author("Bitrise")
 	kingpin.CommandLine.Help = "Environment manger."
 	switch kingpin.Parse() {
 	case add.FullCommand():
