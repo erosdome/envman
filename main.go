@@ -4,21 +4,16 @@ import (
 	"fmt"
 	"errors"
 	"os"
+	"os/exec"
 	"io/ioutil"
 
 	"github.com/gkiki90/envman/pathutil"
 	"github.com/gkiki90/envman/envutil"
-	"github.com/alecthomas/kingpin"
 	"code.google.com/p/go.crypto/ssh/terminal"
+	"github.com/codegangsta/cli"
 )
 
-var (
-	add = kingpin.Command("add", "Add new environment variable.")
-	key = add.Flag("key", "Key for new/exist environment variable.").Required().String()
-	value = add.Flag("value", "Value for new/exist environment variable.").String()
-
-	print = kingpin.Command("print", "Load environment variables.")
-)
+var stdinValue string
 
 func loadEnvlist() (envutil.EnvListYMLStruct, error) {
 	path := pathutil.DefaultEnvlistPath
@@ -40,14 +35,21 @@ func loadEnvlist() (envutil.EnvListYMLStruct, error) {
 	} 
 }
 
+func addCommand(c *cli.Context) {
+	envKey := c.String("key")
+	envValue := c.String("value")
+	if stdinValue != "" {
+		envValue = stdinValue
+	}
 
-func addEnv(envKey, envValue string) error {
 	// Validate input
 	if envKey == "" {
-		return errors.New("Invalid environment variable key")
+		fmt.Println("Invalid environment variable key")
+		return
 	}
 	if envValue == "" {
-		return errors.New("Invalid environment variable value")
+		fmt.Println("Invalid environment variable value")
+		return
 	}
 
 	// Load envlist, or create if not exist
@@ -56,16 +58,16 @@ func addEnv(envKey, envValue string) error {
 		err := pathutil.CreateEnvmanDir()
 		if err != nil {
 			fmt.Println("Failed to create envman dir, err: %s", err)
-			return err
+			return
 		}
 	}
 
 	// Add to or update envlist
 	alreadyUsedKey := false
-	newEnvStruct := envutil.EnvYMLStruct{ *key, *value }
+	newEnvStruct := envutil.EnvYMLStruct{ envKey, envValue }
 	var newEnvList []envutil.EnvYMLStruct
-	for i := range envlist.Inputs {
-		oldEnvStruct := envlist.Inputs[i]
+	for i := range envlist.Envlist {
+		oldEnvStruct := envlist.Envlist[i]
 		if oldEnvStruct.Key ==  newEnvStruct.Key {
 			alreadyUsedKey = true
 			newEnvList = append(newEnvList, newEnvStruct)
@@ -76,32 +78,57 @@ func addEnv(envKey, envValue string) error {
 	if alreadyUsedKey == false {
 		newEnvList = append(newEnvList, newEnvStruct)
 	}
-	envlist.Inputs = newEnvList
+	envlist.Envlist = newEnvList
 	err = envutil.WriteEnvListToFile(pathutil.DefaultEnvlistPath, envlist)
 	if err != nil {
 		fmt.Println("Failed to create store envlist, err: %s", err)
-		return err
+		return
 	}
-
 	fmt.Println("New env list: ", newEnvList)
 
-	return nil
+	return
 }
 
-func printEnvlist() error {
+func exportCommand(c *cli.Context) {
 	envlist, err := loadEnvlist()
 	if err != nil {
-		fmt.Println("Failed to read environment variable list, err: %s", err)
-		return err
+		fmt.Println("Failed to export environemt variable list, err: %s", err)
+		return
 	}
-	fmt.Println(envlist)
-	return nil;
+	if len(envlist.Envlist) == 0 {
+		fmt.Println("Empty environemt variable list")
+		return
+	}
+
+	for i := range envlist.Envlist {
+		env := envlist.Envlist[i]
+		os.Setenv(env.Key, env.Value)
+		fmt.Println(env.Key, os.Getenv(env.Key))
+	}
+
+	return
 }
 
+func runCommand(c *cli.Context) {
+	if len(c.Args()) < 1 {
+		return
+	}
+
+	cmd := c.Args()[0]
+	args := c.Args()[1:]
+	fmt.Println("Run cmd: %s params: %s", cmd, args)
+
+	if err := exec.Command(cmd, args...).Run(); err != nil {
+		fmt.Println(os.Stderr, err)
+		return
+	}
+
+	return
+}
 
 func main() {
 	// Read piped data
-	stdinValue := ""
+	stdinValue = ""
 	if ! terminal.IsTerminal(0) {
         bytes, err := ioutil.ReadAll(os.Stdin)
         if err != nil {
@@ -110,18 +137,41 @@ func main() {
         stdinValue = string(bytes)
     } 
 
-	// Perform command
-	kingpin.UsageTemplate(kingpin.CompactUsageTemplate).Version("1.0").Author("Bitrise")
-	kingpin.CommandLine.Help = "Environment variable manger."
-	switch kingpin.Parse() {
-		case add.FullCommand(): {
-			if stdinValue != "" {
-				*value = stdinValue
-			}
-			kingpin.FatalIfError(addEnv(*key, *value), "Add failed")
-		}
-		case print.FullCommand(): {
-			kingpin.FatalIfError(printEnvlist(), "Print failed")
-		}
+    // Parse cl 
+	app := cli.NewApp()
+	app.Name = "envman"
+	app.Usage = "Environment varaibale manager."
+	app.Commands = []cli.Command {
+		{
+			Name: "add",
+			Flags: []cli.Flag {
+				cli.StringFlag {
+			    Name: "key",
+			    Value: "",
+			  },
+			  cli.StringFlag {
+			    Name: "value",
+			    Value: "",
+			  },
+			},
+			Action: addCommand,
+		},
+		{
+			Name: "print",
+			SkipFlagParsing: true,
+			Action: exportCommand,
+		},
+		{
+			Name: "env",
+			SkipFlagParsing: true,
+			Action: exportCommand,
+		},
+		{
+			Name: "run",
+			SkipFlagParsing: true,
+			Action: runCommand,
+		},
 	}
+
+	app.Run(os.Args)
 }

@@ -9,12 +9,12 @@ import (
 )
 
 type EnvYMLStruct struct {
-	Key 			string 		`yml:"key"`
-	Value 			string		`yml:"value"`
+	Key string `yml:"key"`
+	Value string `yml:"value"`
 }
 
 type EnvListYMLStruct struct {
-	Inputs []EnvYMLStruct `yml:"environment_variables"`
+	Envlist []EnvYMLStruct `yml:"environment_variables"`
 }
 
 func ReadEnvListFromFile(fpath string) (EnvListYMLStruct, error) {
