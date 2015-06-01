@@ -41,6 +41,6 @@ func CreateEnvmanDir() error {
 }
 
 func createDir(path string) error {
-    err := os.MkdirAll(path, 02750)
+    err := os.MkdirAll(path, os.ModePerm|os.ModeDir)
     return err
 }

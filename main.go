@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"errors"
 	"os"
-	"os/exec"
+	//"os/exec"
 	"io/ioutil"
+	"strings"
 
 	"github.com/gkiki90/envman/pathutil"
 	"github.com/gkiki90/envman/envutil"
@@ -14,6 +15,7 @@ import (
 )
 
 var stdinValue string
+var configCommandEnvPrefix = "_CMDENV__"
 
 func loadEnvlist() (envutil.EnvListYMLStruct, error) {
 	path := pathutil.DefaultEnvlistPath
@@ -103,32 +105,57 @@ func exportCommand(c *cli.Context) {
 	for i := range envlist.Envlist {
 		env := envlist.Envlist[i]
 		os.Setenv(env.Key, env.Value)
-		fmt.Println(env.Key, os.Getenv(env.Key))
+		//fmt.Println(env.Key, os.Getenv(env.Key))
 	}
 
 	return
 }
 
 func runCommand(c *cli.Context) {
-	if len(c.Args()) < 1 {
-		return
+	exportCommand(c)
+
+	/*
+	doCmdEnvs := getCommandEnvironments()
+	doCommand := c.String("run")
+	flagCmdWorkDir := c.String("workdir")
+	cmdToSend := CommandModel{
+		Command:          doCommand,
+		Environments:     doCmdEnvs,
+		WorkingDirectory: flagCmdWorkDir,
 	}
 
-	cmd := c.Args()[0]
-	args := c.Args()[1:]
-	fmt.Println("Run cmd: %s params: %s", cmd, args)
+	cmdExitCode, err := ExecuteCommand(cmdToSend)
 
-	if err := exec.Command(cmd, args...).Run(); err != nil {
-		fmt.Println(os.Stderr, err)
-		return
-	}
+	fmt.Println(cmdToSend, cmdExitCode, err)
+	*/
+
+	executeCmd()
 
 	return
 }
 
+func getCommandEnvironments() []EnvironmentKeyValue {
+	cmdEnvs := []EnvironmentKeyValue{}
+
+	for _, anEnv := range os.Environ() {
+		splits := strings.Split(anEnv, "=")
+		keyWithPrefix := splits[0]
+		if strings.HasPrefix(keyWithPrefix, configCommandEnvPrefix) {
+			cmdEnvItem := EnvironmentKeyValue{
+				Key:   keyWithPrefix[len(configCommandEnvPrefix):],
+				Value: os.Getenv(keyWithPrefix),
+			}
+			cmdEnvs = append(cmdEnvs, cmdEnvItem)
+		}
+	}
+
+	//fmt.Println("cmdEnvs: %#v\n", cmdEnvs)
+
+	return cmdEnvs
+}
+
 func main() {
 	// Read piped data
-	stdinValue = ""
 	if ! terminal.IsTerminal(0) {
         bytes, err := ioutil.ReadAll(os.Stdin)
         if err != nil {
@@ -141,6 +168,21 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "envman"
 	app.Usage = "Environment varaibale manager."
+	app.Flags = []cli.Flag {
+		cli.StringFlag {
+			Name: "run",
+			Value: "",
+		},
+		cli.StringFlag {
+			Name: "workdir",
+			Value: "",
+		},
+	}
+	app.Action = func(c *cli.Context) {
+		if c.String("run") != "" {
+			runCommand(c)
+		}
+	}
 	app.Commands = []cli.Command {
 		{
 			Name: "add",
